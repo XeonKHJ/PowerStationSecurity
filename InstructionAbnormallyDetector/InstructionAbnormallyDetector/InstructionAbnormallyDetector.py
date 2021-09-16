@@ -4,6 +4,7 @@ import torch.nn.functional as F
 import torch.nn.utils.rnn as torchrnn
 
 import torch.optim as optim
+from LSTMAbnormallyDetector import LstmRNN
 
 def fuck(elem):
     return len(elem)
@@ -14,7 +15,6 @@ file = open("..\..\Datasets\data.txt");
 
 dataLists = list()
 lineNums = 0;
-dataTimestampLengths = list()
 
 isReading = True
 singleData = list()
@@ -31,29 +31,46 @@ while isReading:
             datas.append(int(i))
         singleData.append(datas)
     else:
-        dataTimestampLengths.append(len(singleData))
         dataLists.append(singleData)
         singleData = list()
 
-# Pad data
+paddedTrainingSet, dataTimestampLengths = LstmRNN.PadData(dataLists, 6)
 
-# Sort data first
-dataLists.sort(key=fuck, reverse=True)
-dataTimestampLengths.sort(reverse=True)
 # Padding data
 longestSeqLength = len(dataLists[1])
 dataBatchSize = len(dataLists)
-featureSize = 6
 
-inputTensor = torch.zeros(dataBatchSize,longestSeqLength, featureSize).int()
 
-for i in range(dataBatchSize):
-    currentTimeSeq = 1
-    for j in range(len(dataLists[i])):
-        inputTensor[i][j] = torch.tensor(dataLists[i][j])
-        
+lstm_model = LstmRNN(6, 6, 6, 2)
+#lstm_model.forward(inputTensor.float())
 
-abbcdd = torchrnn.pack_padded_sequence(inputTensor, dataTimestampLengths, True)
+loss_function = nn.MSELoss()
+optimizer = torch.optim.Adam(lstm_model.parameters(), lr=1e-2)
+
+max_epochs = 10000
+for epoch in range(max_epochs):
+    output = lstm_model(paddedTrainingSet, dataTimestampLengths)
+
+    padoutput = torchrnn.pad_packed_sequence(output, True)
+
+    loss = loss_function(output, padoutput[2])
+
+    loss.backward()
+    optimizer.step()
+    optimizer.zero_grad()
+
+    if loss.item() < 1e-4:
+        print('Epoch [{}/{}], Loss: {:.5f}'.format(epoch+1, max_epochs, loss.item()))
+        print("The loss value is reached")
+        break
+    elif (epoch+1) % 100 == 0:
+        print('Epoch: [{}/{}], Loss:{:.5f}'.format(epoch+1, max_epochs, loss.item()))
+
+# prediction on training dataset
+predictive_y_for_training = lstm_model(train_x_tensor)
+predictive_y_for_training = predictive_y_for_training.view(-1, OUTPUT_FEATURES_NUM).data.numpy()
+
+
 
 print("")
         
