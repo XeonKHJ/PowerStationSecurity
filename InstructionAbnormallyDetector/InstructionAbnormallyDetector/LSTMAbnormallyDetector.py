@@ -21,7 +21,7 @@ class LstmRNN(nn.Module):
         # reveresd LSTM
         self.rlstm = nn.LSTM(input_size, hidden_size, num_layers, batch_first=True) 
 
-        self.forwardCalculation = nn.Linear(hidden_size, output_size)
+        self.forwardCalculation = nn.Linear(2,1)
         
     def forward(self, _x, xTimestampSizes):
         x = torchrnn.pack_padded_sequence(_x, xTimestampSizes, True)
@@ -33,14 +33,18 @@ class LstmRNN(nn.Module):
         
         x, xBatchSize = torchrnn.pad_packed_sequence(x, batch_first=True)
         rx, rxBatchSize = torchrnn.pad_packed_sequence(rx, batch_first=True)
-        x.stack(rx, [0])
+
+        # stack x and rx
+        xrx = torch.stack([x,rx], 2)
 
         #s, b, h = x.shape  # x is output, size (seq_len, batch, hidden_size)
         #x = x.view(s*b, h)
 
         # stack output 
+        xrx = torch.transpose(xrx, 2, 3)
 
-        x = self.forwardCalculation(x)
+        x = self.forwardCalculation(xrx)
+        x = nn.MultiLabelSoftMarginLoss()
         x, b = torchrnn.pad_packed_sequence(x, batch_first=True)
         x = F.relu(x)
         #x = x.view(s, b, -1)
