@@ -50,11 +50,7 @@ optimizer = torch.optim.Adam(lstm_model.parameters(), lr=1e-2)
 max_epochs = 10000
 for epoch in range(max_epochs):
     output = lstm_model(paddedTrainingSet, dataTimestampLengths)
-
-    padoutput = torchrnn.pad_packed_sequence(output, True)
-
-    loss = loss_function(output, padoutput[2])
-
+    loss = loss_function(output, paddedTrainingSet)
     loss.backward()
     optimizer.step()
     optimizer.zero_grad()

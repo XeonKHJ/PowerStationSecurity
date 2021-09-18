@@ -23,6 +23,8 @@ class LstmRNN(nn.Module):
 
         self.forwardCalculation = nn.Linear(2,1)
         
+        self.finalCalculation = nn.Sigmoid()
+
     def forward(self, _x, xTimestampSizes):
         x = torchrnn.pack_padded_sequence(_x, xTimestampSizes, True)
         x, b = self.lstm(x)  # _x is input, size (seq_len, batch, input_size)
@@ -33,9 +35,26 @@ class LstmRNN(nn.Module):
         
         x, xBatchSize = torchrnn.pad_packed_sequence(x, batch_first=True)
         rx, rxBatchSize = torchrnn.pad_packed_sequence(rx, batch_first=True)
-
+        forward_to_stack_x = torch.transpose(x, 0, 1)
+        backward_to_stack_x = torch.transpose(rx, 0, 1)
         # stack x and rx
-        xrx = torch.stack([x,rx], 2)
+        T = x.shape[1] - 1
+
+        if T == 0:
+            # No need to clap
+            head_x = x
+        elif T == 1:
+            head_x = x
+            tail_x = rx
+            # No need to clap, but requires reversed LSTM
+        elif T > 1:
+            forward_stacking_x = torch.transpose(forward_to_stack_x[0:T - 1], 0, 1)
+            backward_stacking_x = torch.transpose(backward_to_stack_x[1:T], 0, 1)
+            head_x = backward_to_stack_x[1]
+            tail_x = forward_to_stack_x[T-1]
+            xrx = torch.stack([forward_stacking_x, backward_stacking_x], 2)
+            # need to stack forward LSTM and reversed LSTM together.
+          
 
         #s, b, h = x.shape  # x is output, size (seq_len, batch, hidden_size)
         #x = x.view(s*b, h)
@@ -44,9 +63,8 @@ class LstmRNN(nn.Module):
         xrx = torch.transpose(xrx, 2, 3)
 
         x = self.forwardCalculation(xrx)
-        x = nn.MultiLabelSoftMarginLoss()
-        x, b = torchrnn.pad_packed_sequence(x, batch_first=True)
-        x = F.relu(x)
+        x = self.finalCalculation(x)
+        x = torch.reshape(x, (x.shape[0],x.shape[1],x.shape[2]))
         #x = x.view(s, b, -1)
         return x
     
