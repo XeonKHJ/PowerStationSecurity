@@ -62,8 +62,10 @@ for epoch in range(max_epochs):
     elif (epoch+1) % 100 == 0:
         print('Epoch: [{}/{}], Loss:{:.5f}'.format(epoch+1, max_epochs, loss.item()))
 
+
+trainingExample = paddedTrainingSet[0][:]
 # prediction on training dataset
-predictive_y_for_training = lstm_model(train_x_tensor)
+predictive_y_for_training = lstm_model(paddedTrainingSet, dataTimestampLengths)
 predictive_y_for_training = predictive_y_for_training.view(-1, OUTPUT_FEATURES_NUM).data.numpy()
 
 

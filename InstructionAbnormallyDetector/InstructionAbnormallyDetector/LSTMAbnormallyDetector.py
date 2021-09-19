@@ -20,10 +20,12 @@ class LstmRNN(nn.Module):
         
         # reveresd LSTM
         self.rlstm = nn.LSTM(input_size, hidden_size, num_layers, batch_first=True) 
-
-        self.forwardCalculation = nn.Linear(2,1)
-        
+        self.forwardCalculation = nn.Linear(12,6)
         self.finalCalculation = nn.Sigmoid()
+        self.head_linear = nn.Linear(6,6)
+        self.tail_linear = nn.Linear(6,6)
+        self.head_final = nn.Sigmoid()
+        self.tail_final = nn.Sigmoid()
 
     def forward(self, _x, xTimestampSizes):
         x = torchrnn.pack_padded_sequence(_x, xTimestampSizes, True)
@@ -53,20 +55,34 @@ class LstmRNN(nn.Module):
             head_x = backward_to_stack_x[1]
             tail_x = forward_to_stack_x[T-1]
             xrx = torch.stack([forward_stacking_x, backward_stacking_x], 2)
+            xrx = torch.transpose(xrx, 2, 3)
+
+            xrx = torch.reshape(xrx, (xrx.shape[0], xrx.shape[1], 12))
+
+            x = self.forwardCalculation(xrx)
+            x = self.finalCalculation(x)
+            
+            #torch.reshape(head_x, (head_x.shape[0], head_x.shape[1], 1))
+            head_x = self.head_linear(head_x)
+            head_x = self.head_final(head_x)
+            head_x = torch.reshape(head_x, (head_x.shape[0], 1, 6))
+            tail_x = self.tail_linear(tail_x)
+            tail_x = self.tail_final(tail_x)
+            tail_x = torch.reshape(tail_x, (tail_x.shape[0], 1, 6))
             # need to stack forward LSTM and reversed LSTM together.
-          
+
+            stacked_x = torch.stack([head_x, x,tail_x], 1)
+            stacked_x = torch.reshape(stacked_x, (stacked_x.shape[0], stacked_x.shape[1], 6))
 
         #s, b, h = x.shape  # x is output, size (seq_len, batch, hidden_size)
         #x = x.view(s*b, h)
 
         # stack output 
-        xrx = torch.transpose(xrx, 2, 3)
 
-        x = self.forwardCalculation(xrx)
-        x = self.finalCalculation(x)
-        x = torch.reshape(x, (x.shape[0],x.shape[1],x.shape[2]))
+
+        #x = torch.reshape(x, (x.shape[0],x.shape[1],x.shape[2]))
         #x = x.view(s, b, -1)
-        return x
+        return stacked_x
     
     
     
